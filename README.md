@@ -6,7 +6,6 @@
 ![Flask](https://img.shields.io/badge/Flask-3.0-000000?style=flat-square&logo=flask)
 ![YOLOv8](https://img.shields.io/badge/Ultralytics-YOLOv8-0000FF?style=flat-square)
 ![Roboflow](https://img.shields.io/badge/Roboflow-Dataset-purple?style=flat-square)
-![Colab](https://img.shields.io/badge/Google_Colab-T4_GPU-F9AB00?style=flat-square&logo=google-colab)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
 ---
@@ -19,7 +18,6 @@
 - **Epoch Progress Bar** — Automatically parsed from training output
 - **Cancel Run** — Sends `SIGINT` (Ctrl+C equivalent) to kill the training process cleanly
 - **Results Viewer** — Auto-loads `results.png` and best weights path after training
-- **Colab Notebook** — Full `VisionForge_Training.ipynb` for T4 GPU training on Google Colab
 
 ---
 
@@ -29,11 +27,21 @@
 visionforge/
 ├── app.py                        # Flask backend
 ├── requirements.txt              # Python dependencies
-├── VisionForge_Training.ipynb    # Google Colab notebook (T4 GPU)
 ├── templates/
 │   └── index.html                # Frontend UI
 └── README.md
 ```
+
+---
+
+## ⚠️ Before You Run — Configure `app.py`
+
+> `app.py` has separate **GPU** and **CPU** sections that must be configured before starting.
+>
+> **GPU user** → uncomment the GPU sections, comment out the CPU sections.
+> **CPU user** → uncomment the CPU sections, comment out the GPU sections.
+>
+> Each section in `app.py` is clearly labeled with instructions inside the file.
 
 ---
 
@@ -68,20 +76,6 @@ python app.py
 ```
 
 Open your browser at **http://localhost:5000**
-
----
-
-## ☁️ Google Colab (T4 GPU)
-
-Use the included `VisionForge_Training.ipynb` notebook for free T4 GPU training:
-
-1. Open in [Google Colab](https://colab.research.google.com/)
-2. Go to **Runtime → Change runtime type → T4 GPU**
-3. Run **Cell 1** — `!nvidia-smi` to verify GPU connection
-4. Fill in your Roboflow credentials and hyperparameters in **Step 3**
-5. Run all cells in order
-
-The notebook also supports launching the full VisionForge web UI via an **ngrok tunnel** directly from Colab.
 
 ---
 
@@ -138,6 +132,7 @@ The **epoch progress bar** fills automatically.
 | `GET` | `/logs_stream` | SSE stream of live training logs |
 | `GET` | `/status` | Returns training state and best weights path |
 | `GET` | `/results_image` | Serves the latest `results.png` |
+| `GET` | `/gpu_status` | Returns detected CUDA GPUs *(GPU users only)* |
 
 ---
 
@@ -146,7 +141,6 @@ The **epoch progress bar** fills automatically.
 - Python 3.10+
 - CUDA-compatible GPU recommended (NVIDIA)
 - Roboflow account — [sign up free](https://roboflow.com)
-- Ngrok account (for Colab UI tunnel) — [sign up free](https://ngrok.com)
 
 ---
 

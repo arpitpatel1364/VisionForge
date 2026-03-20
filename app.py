@@ -1,6 +1,20 @@
 """
 VisionForge — Model Training Studio
 Flask backend: dataset download, YOLOv8 training, live log streaming, cancel support.
+
+╔══════════════════════════════════════════════════════════════════╗
+║                        USAGE INSTRUCTIONS                        ║
+╠══════════════════════════════════════════════════════════════════╣
+║  GPU USER  →  Keep the GPU section UNCOMMENTED                   ║
+║               Comment out the CPU section                        ║
+║               Requires: pip install torch                        ║
+║                         --index-url                              ║
+║                         https://download.pytorch.org/whl/cu121  ║
+╠══════════════════════════════════════════════════════════════════╣
+║  CPU USER  →  Keep the CPU section UNCOMMENTED                   ║
+║               Comment out the GPU section                        ║
+║               Requires: pip install torch                        ║
+╚══════════════════════════════════════════════════════════════════╝
 """
 
 import os
@@ -34,7 +48,6 @@ def enqueue_log(line: str):
 
 
 def find_best_weights() -> str | None:
-    """Locate best.pt produced by the last training run."""
     candidates = sorted(
         glob.glob("runs/detect/train*/weights/best.pt"),
         key=os.path.getmtime,
@@ -44,7 +57,6 @@ def find_best_weights() -> str | None:
 
 
 def find_results_image() -> str | None:
-    """Locate results.png produced by the last training run."""
     candidates = sorted(
         glob.glob("runs/detect/train*/results.png"),
         key=os.path.getmtime,
@@ -62,14 +74,13 @@ def index():
 
 @app.route("/parse_snippet", methods=["POST"])
 def parse_snippet():
-    """Extract api_key, workspace, project_name, version_num from a Roboflow snippet."""
     data = request.get_json(force=True)
     snippet: str = data.get("snippet", "")
 
-    api_key = re.search(r'api_key\s*=\s*["\']([^"\']+)["\']', snippet)
+    api_key   = re.search(r'api_key\s*=\s*["\']([^"\']+)["\']', snippet)
     workspace = re.search(r'\.workspace\(["\']([^"\']+)["\']\)', snippet)
-    project = re.search(r'\.project\(["\']([^"\']+)["\']\)', snippet)
-    version = re.search(r'\.version\((\d+)\)', snippet)
+    project   = re.search(r'\.project\(["\']([^"\']+)["\']\)', snippet)
+    version   = re.search(r'\.version\((\d+)\)', snippet)
 
     missing = []
     if not api_key:   missing.append("api_key")
@@ -89,6 +100,43 @@ def parse_snippet():
     })
 
 
+# ┌─────────────────────────────────────────────────────────────────┐
+# │                  /gpu_status  ROUTE                             │
+# │         GPU USER → keep this   |   CPU USER → comment this     │
+# └─────────────────────────────────────────────────────────────────┘
+@app.route("/gpu_status", methods=["GET"])
+def gpu_status():
+    """Return available CUDA GPUs so the frontend can show a GPU badge."""
+    check_script = """
+import json
+try:
+    import torch
+    available = torch.cuda.is_available()
+    count = torch.cuda.device_count() if available else 0
+    gpus = []
+    for i in range(count):
+        props = torch.cuda.get_device_properties(i)
+        gpus.append({
+            "index": i,
+            "name": props.name,
+            "vram_gb": round(props.total_memory / 1e9, 1),
+        })
+    print(json.dumps({"available": available, "gpus": gpus}))
+except ImportError:
+    print(json.dumps({"available": False, "gpus": [], "error": "torch not installed"}))
+"""
+    try:
+        result = subprocess.run(
+            ["python", "-c", check_script],
+            capture_output=True, text=True, timeout=15
+        )
+        data = json.loads(result.stdout.strip())
+        return jsonify(data)
+    except Exception as exc:
+        return jsonify({"available": False, "gpus": [], "error": str(exc)})
+# ▲▲▲  GPU USER → keep above  |  CPU USER → comment above  ▲▲▲
+
+
 @app.route("/start_training", methods=["POST"])
 def start_training():
     global training_process, training_status
@@ -102,9 +150,17 @@ def start_training():
         if not cfg.get(key):
             return jsonify({"success": False, "error": f"Missing field: {key}"}), 200
 
+    # ┌─────────────────────────────────────────────────────────────────┐
+    # │  DEVICE SELECTION — pick ONE block, comment out the other      │
+    # ├─────────────────────────────────────────────────────────────────┤
+    # │  GPU USER  →  keep this line, comment out the CPU line below   │
+    cfg.setdefault("device", "0")        # 0 = first GPU | "0,1" = multi-GPU
+    # │  CPU USER  →  keep this line, comment out the GPU line above   │
+    # cfg.setdefault("device", "cpu")    # force CPU training
+    # └─────────────────────────────────────────────────────────────────┘
+
     training_status = {"running": True, "weights_path": None, "error": None}
 
-    # Clear old log queue
     while not log_queue.empty():
         try: log_queue.get_nowait()
         except queue.Empty: break
@@ -128,7 +184,7 @@ def _run_training(cfg: dict):
             stderr=subprocess.STDOUT,
             text=True,
             bufsize=1,
-            preexec_fn=os.setsid,  # new process group → clean kill
+            preexec_fn=os.setsid,
         )
 
         for line in training_process.stdout:
@@ -158,31 +214,91 @@ def _run_training(cfg: dict):
 
 
 def _build_training_script(cfg: dict) -> str:
+    device = cfg.get("device", "0")
+
     return f"""
 import subprocess, sys
 
-# Install dependencies if needed
+# ── Install dependencies ───────────────────────────────────────────────────────
 for pkg in ["roboflow", "ultralytics"]:
     subprocess.run([sys.executable, "-m", "pip", "install", pkg, "-q"], check=False)
 
+import torch
+
+# ╔═════════════════════════════════════════════════════════════════════╗
+# ║               GPU SECTION — GPU USER: keep this block             ║
+# ║                              CPU USER: comment this block         ║
+# ╚═════════════════════════════════════════════════════════════════════╝
+print("=" * 55)
+if torch.cuda.is_available():
+    gpu_count = torch.cuda.device_count()
+    print(f"✅ CUDA available — {{gpu_count}} GPU(s) detected")
+    for i in range(gpu_count):
+        props = torch.cuda.get_device_properties(i)
+        vram  = props.total_memory / 1e9
+        print(f"   GPU {{i}}: {{props.name}}  |  VRAM: {{vram:.1f}} GB")
+    print(f"🎯 Training device: {device!r}")
+else:
+    print("⚠️  No CUDA GPU found.")
+    print("   Install PyTorch with CUDA:")
+    print("   pip install torch --index-url https://download.pytorch.org/whl/cu121")
+print("=" * 55)
+# ╚═════════════════════════ END GPU SECTION ═══════════════════════════╝
+
+# ╔═════════════════════════════════════════════════════════════════════╗
+# ║               CPU SECTION — CPU USER: keep this block             ║
+# ║                              GPU USER: comment this block         ║
+# ╚═════════════════════════════════════════════════════════════════════╝
+# print("=" * 55)
+# print("ℹ️  Running on CPU — no GPU acceleration")
+# print(f"   PyTorch version : {{torch.__version__}}")
+# print("   Tip: Training will be slow on CPU.")
+# print("        Use a smaller model (yolov8n) and fewer epochs.")
+# print("=" * 55)
+# ╚═════════════════════════ END CPU SECTION ═══════════════════════════╝
+
+# ── Download dataset ──────────────────────────────────────────────────────────
 from roboflow import Roboflow
 from ultralytics import YOLO
 
 print("📦 Connecting to Roboflow…")
-rf = Roboflow(api_key="{cfg['api_key']}")
+rf      = Roboflow(api_key="{cfg['api_key']}")
 project = rf.workspace("{cfg['workspace']}").project("{cfg['project_name']}")
 version = project.version({cfg['version_num']})
 dataset = version.download("yolov8")
 print(f"✅ Dataset downloaded to: {{dataset.location}}")
 
-print("🏋️ Starting YOLOv8 training…")
+print("🏋️  Starting YOLOv8 training…")
 model = YOLO("{cfg['model_variant']}")
+
+# ╔═════════════════════════════════════════════════════════════════════╗
+# ║         GPU TRAINING — GPU USER: keep this block                  ║
+# ║                         CPU USER: comment this block              ║
+# ╚═════════════════════════════════════════════════════════════════════╝
 results = model.train(
     data=f"{{dataset.location}}/data.yaml",
     epochs={cfg['epochs']},
     imgsz={cfg['image_size']},
+    device="{device}",   # 0 = first GPU | "0,1" = multi-GPU
+    amp=True,            # Automatic Mixed Precision (faster, less VRAM)
     verbose=True,
 )
+# ╚══════════════════════ END GPU TRAINING ═════════════════════════════╝
+
+# ╔═════════════════════════════════════════════════════════════════════╗
+# ║         CPU TRAINING — CPU USER: keep this block                  ║
+# ║                         GPU USER: comment this block              ║
+# ╚═════════════════════════════════════════════════════════════════════╝
+# results = model.train(
+#     data=f"{{dataset.location}}/data.yaml",
+#     epochs={cfg['epochs']},
+#     imgsz={cfg['image_size']},
+#     device="cpu",        # force CPU
+#     amp=False,           # AMP not supported on CPU
+#     verbose=True,
+# )
+# ╚══════════════════════ END CPU TRAINING ═════════════════════════════╝
+
 print("✅ Training finished.")
 """
 
