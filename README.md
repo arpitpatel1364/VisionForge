@@ -34,15 +34,8 @@ visionforge/
 
 ---
 
-## ⚠️ Before You Run — Configure `app.py`
-
-> `app.py` has separate **GPU** and **CPU** sections that must be configured before starting.
->
-> **GPU user** → uncomment the GPU sections, comment out the CPU sections.
-> **CPU user** → uncomment the CPU sections, comment out the GPU sections.
->
-> Each section in `app.py` is clearly labeled with instructions inside the file.
-
+## ⚠️ Configure `app.py`
+If you have GPU then its run on by defaul on GPU otherwise automatic shift on CPU
 ---
 
 ## 🚀 Quick Start (Local)
