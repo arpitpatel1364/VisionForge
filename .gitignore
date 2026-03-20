@@ -1,0 +1,113 @@
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+
+# ── Virtual Environments ──────────────────────────────────────────────────────
+venv/
+env/
+.venv/
+.env/
+ENV/
+env.bak/
+venv.bak/
+
+# ── Distribution / Packaging ──────────────────────────────────────────────────
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+.eggs/
+wheels/
+sdist/
+MANIFEST
+
+# ── Jupyter Notebooks ─────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/*
+
+# ── Environment Variables ─────────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+*.env
+
+# ── YOLOv8 / Ultralytics Training Outputs ────────────────────────────────────
+runs/
+visionforge_runs/
+weights/
+*.pt
+*.pth
+*.ckpt
+
+# ── Exported Models ───────────────────────────────────────────────────────────
+*.onnx
+*.tflite
+*.engine
+*.torchscript
+*.mlmodel
+*.pb
+*.trt
+
+# ── Roboflow / Datasets ───────────────────────────────────────────────────────
+datasets/
+data/
+*.zip
+*.tar.gz
+*.tar
+*.gz
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+*.log
+logs/
+training_logs/
+
+# ── OS ────────────────────────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ── IDEs & Editors ────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.swp
+*.swo
+*~
+
+# ── Testing ───────────────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+nosetests.xml
+coverage.xml
+*.cover
+
+# ── Flask ─────────────────────────────────────────────────────────────────────
+instance/
+.webassets-cache
+flask_session/
+
+# ── Misc ──────────────────────────────────────────────────────────────────────
+*.bak
+*.tmp
+*.temp
+.cache/
+tmp/
+temp/
